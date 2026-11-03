@@ -1,0 +1,6 @@
+# Keep the docker build context small: version control, dependency dirs,
+# and caches do not belong in image builds. Mirrors the .gitignore sections.
+
+.git
+node_modules/
+dist/

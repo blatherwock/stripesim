@@ -1,0 +1,8 @@
+# Ignore rules, sectioned by language. Example: delete the sections for
+# languages the project does not use.
+
+# TypeScript
+node_modules/
+
+# Build output
+dist/

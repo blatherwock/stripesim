@@ -1,0 +1,33 @@
+# CI mirror of the justfile contract. `just build` refreshes the lock
+# (`npm update --package-lock-only`) and builds the image, neither of which
+# belongs in CI; instead CI runs the tools directly with `npm ci`,
+# mirroring the typescript blocks of test and check.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck

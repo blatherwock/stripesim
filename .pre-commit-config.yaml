@@ -1,0 +1,20 @@
+# Commit gates: the repository's own recipes, exactly as run by hand.
+# `just fix` writes (formatting, safe lint fixes, regeneration); when it
+# changes files pre-commit fails the commit and leaves the fixes unstaged.
+# `just check` then verifies what fix cannot fix (types, unfixable lint).
+# Tools and interpreter come from the recipes' environment, not from
+# pre-commit's managed environments. Mirrors the justfile contract.
+
+repos:
+  - repo: local
+    hooks:
+      - id: just-fix
+        name: just fix
+        entry: just fix
+        language: system
+        pass_filenames: false
+      - id: just-check
+        name: just check
+        entry: just check
+        language: system
+        pass_filenames: false

@@ -1,0 +1,332 @@
+/*
+ * Both fonts are vendored in src/assets with their licenses: the UI
+ * face Quicksand (variable, weights 300-700, latin subset) and the
+ * nerd symbols font. No network round-trip on load.
+ */
+@font-face {
+	font-family: Quicksand;
+	src: url("./assets/Quicksand-Variable.woff2") format("woff2");
+	font-weight: 300 700;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+		U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+		U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Nerd Symbols";
+	src: url("./assets/SymbolsNerdFont-Regular.ttf") format("truetype");
+	font-display: block;
+}
+
+/* Icon glyphs come from the vendored nerd symbols font. */
+.nf {
+	font-family: "Nerd Symbols", sans-serif;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+/*
+ * Theme palettes: every chrome color derives from these variables. The
+ * active theme is set as data-theme on the body; light is the default.
+ */
+body {
+	--panel-bg: #faf9f7;
+	--pane-bg: #e9e7e4;
+	--text: #1f2937;
+	--text-muted: #6b7280;
+	--border: #d6d3d1;
+	--control-bg: #f3f4f6;
+	--input-bg: #ffffff;
+	--selected-bg: #111827;
+	--selected-fg: #ffffff;
+	--accent: #2563eb;
+}
+
+body[data-theme="beige"] {
+	--panel-bg: #f3f0ea;
+	--pane-bg: #e4e1d8;
+	--text: #43371f;
+	--text-muted: #8c8474;
+	--border: #d5d0c4;
+	--control-bg: #e9e6dd;
+	--input-bg: #faf9f5;
+	--selected-bg: #5b4a35;
+	--selected-fg: #faf9f5;
+	--accent: #b45309;
+}
+
+body[data-theme="gruvbox"] {
+	--panel-bg: #3c3836;
+	--pane-bg: #282828;
+	--text: #ebdbb2;
+	--text-muted: #a89984;
+	--border: #504945;
+	--control-bg: #504945;
+	--input-bg: #282828;
+	--selected-bg: #d8a657;
+	--selected-fg: #282828;
+	--accent: #83a598;
+}
+
+body[data-theme="dark"] {
+	--panel-bg: #23262a;
+	--pane-bg: #1a1c1f;
+	--text: #e5e7eb;
+	--text-muted: #9ca3af;
+	--border: #3b3f44;
+	--control-bg: #2e3236;
+	--input-bg: #1a1c1f;
+	--selected-bg: #e5e7eb;
+	--selected-fg: #111827;
+	--accent: #60a5fa;
+}
+
+body {
+	margin: 0;
+	font:
+		500 14px / 1.4 Quicksand,
+		system-ui,
+		sans-serif;
+	color: var(--text);
+	background: var(--pane-bg);
+}
+
+button,
+input {
+	font: inherit;
+}
+
+button {
+	background: var(--control-bg);
+	border: 1px solid var(--border);
+	color: var(--text);
+	border-radius: 4px;
+}
+
+input[type="number"],
+input[type="text"] {
+	background: var(--input-bg);
+	border: 1px solid var(--border);
+	color: var(--text);
+	border-radius: 4px;
+}
+
+.app {
+	display: flex;
+	height: 100vh;
+}
+
+.pane {
+	flex: 1;
+	overflow: auto;
+	display: flex;
+	background: var(--pane-bg);
+}
+
+canvas {
+	margin: auto;
+	background: #ffffff;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.panel {
+	width: 250px;
+	display: flex;
+	flex-direction: column;
+	padding: 12px;
+	border-right: 1px solid var(--border);
+	background: var(--panel-bg);
+}
+
+/* The editing sections scroll; the theme footer below stays anchored. */
+.panel-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.panel h2 {
+	margin: 18px 0 8px;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-muted);
+}
+
+.panel section:first-child h2 {
+	margin-top: 4px;
+}
+
+/* Theme controls anchored to the panel's bottom left corner. */
+.panel > .theme {
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px solid var(--border);
+}
+
+.row {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.row input[type="number"] {
+	width: 56px;
+}
+
+.swatch-size input[type="number"] {
+	width: 64px;
+}
+
+.swatch-times {
+	color: var(--text-muted);
+}
+
+.row input[type="text"] {
+	width: 72px;
+}
+
+.stripe-row {
+	transition: opacity 0.15s;
+}
+
+.stripe-row.dragging {
+	opacity: 0.35;
+}
+
+.stripe-row.drop-above {
+	box-shadow: inset 0 3px 0 0 var(--accent);
+}
+
+.stripe-row.drop-below {
+	box-shadow: inset 0 -3px 0 0 var(--accent);
+}
+
+.drag-handle {
+	cursor: grab;
+	padding: 0 4px;
+	color: var(--text-muted);
+	user-select: none;
+}
+
+.swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	flex: 1;
+	min-width: 0;
+}
+
+.swatch {
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--panel-bg);
+	border-radius: 4px;
+	padding: 0;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.swatch.selected {
+	outline: 2px solid var(--selected-bg);
+	outline-offset: 1px;
+}
+
+/*
+ * The start grid: a 3x3 grid with the center omitted, one arrow
+ * button per edge and corner, each pointing toward the center. The
+ * center cell is an inert dashed spacer; the selected start fills
+ * dark with `aria-pressed`.
+ */
+.origin-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 2px;
+	flex: 1;
+}
+
+.origin-toggle {
+	min-width: 0;
+	padding: 2px 0;
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	background: var(--control-bg);
+}
+
+.origin-toggle.selected {
+	background: var(--selected-bg);
+	color: var(--selected-fg);
+}
+
+/*
+ * Toggle groups render as one multi-part pill: segments squished
+ * together, a hairline between them, rounded only at the outer ends,
+ * one selected segment at a time.
+ */
+.toggles {
+	display: flex;
+	gap: 0;
+	flex: 1;
+	border: 1px solid var(--border);
+	border-radius: 5px;
+	background: var(--control-bg);
+	overflow: hidden;
+}
+
+.toggle {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 2px 0;
+	border: none;
+	border-radius: 0;
+	background: transparent;
+}
+
+.toggle + .toggle {
+	border-left: 1px solid var(--border);
+}
+
+.toggle:first-child {
+	border-radius: 5px 0 0 5px;
+}
+
+.toggle:last-child {
+	border-radius: 0 5px 5px 0;
+}
+
+.toggle.selected {
+	background: var(--selected-bg);
+	color: var(--selected-fg);
+}
+
+.row button,
+.panel section > button {
+	padding: 2px 8px;
+}
+
+.panel section > button {
+	margin-top: 4px;
+}
+
+.field {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.field > label {
+	flex: 0 0 76px;
+	color: var(--text);
+}
+
+.field > input[type="number"] {
+	width: 72px;
+}

@@ -51,14 +51,14 @@ test *args: _require-image
     @{{container_prefix}}npm test -- {{args}}
 
 # Bring the repo to a state where check passes; one block per toolchain.
-fix *args: _require-image
+fix: _require-image
     @# typescript
     @{{container_prefix}}npm run format
     @# regenerate any generated artifacts so check passes
 
 # Definition-of-done gate: formatting, lint, types, artifact freshness.
 # Read-only; one block per toolchain.
-check *args: _require-image
+check: _require-image
     @# typescript
     @{{container_prefix}}npm run lint
     @{{container_prefix}}npm run typecheck

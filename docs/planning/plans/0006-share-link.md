@@ -9,6 +9,7 @@ New module `src/share.ts` encodes `PatternParams` into a byte stream and base64u
 Decode validates and rejects: wrong version, truncation, or an unknown color index drops that stripe (content is id-free by design; identity is position).
 
 Confirmed format decisions:
+
 - Palette colors ride as raw RGB triples; ids never leave the app (consistent with the export file).
 - The value sits in the hash fragment, not the query, so sharing never involves the server.
 - A shared hash beats the stored working set on load; the decoded pattern then persists as the working set through normal edits.

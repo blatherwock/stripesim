@@ -28,10 +28,13 @@ default:
 _require-image:
     @{{require_image}}
 
-# Refresh the lock file and build the project image (host only).
+# Refresh the lock file, sync node_modules to it (the mounted repo
+# shadows the image's copy, so this local install is what checks run
+# against), and build the project image (host only).
 build:
     @{{host_only_error}}
     @{{docker_run}} node:24-trixie-slim npm update --package-lock-only
+    @{{docker_run}} node:24-trixie-slim npm ci
     docker build --pull --no-cache -t {{image}} .
 
 # Start a pi session in the project container (host only).

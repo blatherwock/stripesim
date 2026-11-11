@@ -100,9 +100,11 @@ export function buildPanel(
 		swatchSection(state, getState, dispatch),
 	);
 	host.append(
+		logoSection(),
 		historyRow(getState, dispatch, historyDeps),
 		scroll,
 		themeSection(state, getState, dispatch),
+		copyrightSection(),
 	);
 }
 
@@ -604,6 +606,28 @@ function themeSection(
 		),
 	);
 	return box;
+}
+
+// Wordmark at the panel's top center. Small caps keep it compact
+// while the bold weight makes it read as a title. It links to "/",
+// the easiest clean entry point to the app.
+function logoSection(): HTMLElement {
+	const title = document.createElement("h1");
+	title.className = "logo";
+	const link = document.createElement("a");
+	link.href = "/";
+	link.textContent = "Stripesim";
+	title.append(link);
+	return title;
+}
+
+// Copyright line under the theme picker. The year reads at build
+// time, so it matches when the page was last shipped.
+function copyrightSection(): HTMLElement {
+	const line = document.createElement("p");
+	line.className = "copyright";
+	line.textContent = `\u{00a9} ${new Date().getFullYear()}`;
+	return line;
 }
 
 type NumberInputOptions = {

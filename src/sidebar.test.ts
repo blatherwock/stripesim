@@ -5,9 +5,9 @@ import { serializeSaved } from "./saved";
 import { decodePattern } from "./share";
 import { buildSidebar, type SavedChange, type SidebarDeps } from "./sidebar";
 
-// Three cards with distinct swatch shapes, so a wrong card's thumbnail
+// Cards with distinct swatch shapes, so a wrong card's thumbnail
 // shows up in assertions. Cards hold pattern parameters only.
-function savedList(): SavedPattern[] {
+function savedList(count = 3): SavedPattern[] {
 	const params = (width: number, height: number): PatternParams => ({
 		palette: [{ id: "a", hex: "#2563eb" }],
 		stripes: [{ colorId: "a", thickness: 2 }],
@@ -16,11 +16,10 @@ function savedList(): SavedPattern[] {
 		angle: 45,
 		swatch: { width, height },
 	});
-	return [
-		{ id: "card-0", params: params(10, 100) },
-		{ id: "card-1", params: params(50, 50) },
-		{ id: "card-2", params: params(100, 10) },
-	];
+	return Array.from({ length: count }, (_, index) => ({
+		id: `card-${index}`,
+		params: params(10 * (index + 1), 100 - 30 * index),
+	}));
 }
 
 type Harness = {
@@ -33,12 +32,12 @@ type Harness = {
 
 // Mirrors the app wiring: the sidebar reads state and list through
 // deps and records every intent for the owner to apply.
-function harness(): Harness {
+function harness(list: SavedPattern[] = savedList()): Harness {
 	const changes: SavedChange[] = [];
 	let collapsed = false;
 	let canSave = true;
 	const deps: SidebarDeps = {
-		getList: savedList,
+		getList: () => list,
 		isCollapsed: () => collapsed,
 		canSave: () => canSave,
 		onChange: (change) => {
@@ -225,6 +224,18 @@ describe("card reordering", () => {
 		expect(cards(t.host)[2]?.classList.contains("drop-above")).toBe(true);
 		list.dispatchEvent(makeDragEvent("drop", 150));
 		expect(t.changes).toEqual([{ kind: "move", from: 0, target: 1 }]);
+	});
+
+	test("dropping a later card right above an earlier one asks for that gap", () => {
+		const t = harness(savedList(4));
+		stubCardRects(t.host);
+		const fourth = cards(t.host)[3] as HTMLElement;
+		fourth.dispatchEvent(makeDragEvent("dragstart", 300));
+		// Above card 2 (y 160 sits in its top half) is the gap card 3
+		// fills after its own removal: index 2 of the remaining cards.
+		const list = fourth.parentElement as HTMLElement;
+		list.dispatchEvent(makeDragEvent("drop", 160));
+		expect(t.changes).toEqual([{ kind: "move", from: 3, target: 2 }]);
 	});
 
 	test("a drop that reproduces the order asks for a no-op move", () => {

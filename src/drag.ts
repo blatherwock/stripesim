@@ -67,16 +67,16 @@ export function attachReorder(
 	drag: DragState,
 	onMove: (from: number, target: number) => void,
 ): void {
-	const target = (event: DragEvent): number => {
+	const target = (event: DragEvent, from: number): number => {
 		const rows = [...sectionBox.querySelectorAll(selector)];
 		for (const [index, row] of rows.entries()) {
 			const rect = row.getBoundingClientRect();
 			if (event.clientY <= rect.top + rect.height / 2) {
-				return dropTargetIndex(drag.from ?? 0, index, false);
+				return dropTargetIndex(from, index, false);
 			}
 		}
 		const last = rows.length - 1;
-		return dropTargetIndex(drag.from ?? 0, last, true);
+		return dropTargetIndex(from, last, true);
 	};
 	sectionBox.addEventListener("dragover", (event) => {
 		if (drag.from === null) {
@@ -84,7 +84,12 @@ export function attachReorder(
 		}
 		event.preventDefault();
 		clearDropIndicators(sectionBox);
-		showDropIndicator(sectionBox, selector, drag.from, target(event));
+		showDropIndicator(
+			sectionBox,
+			selector,
+			drag.from,
+			target(event, drag.from),
+		);
 	});
 	sectionBox.addEventListener("drop", (event) => {
 		if (drag.from === null) {
@@ -92,7 +97,8 @@ export function attachReorder(
 		}
 		event.preventDefault();
 		const from = drag.from;
+		const to = target(event, from);
 		drag.from = null;
-		onMove(from, target(event));
+		onMove(from, to);
 	});
 }

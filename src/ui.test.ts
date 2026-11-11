@@ -137,14 +137,38 @@ describe("buildPanel structure", () => {
 		);
 	});
 
+	test("the wordmark sits at the top of the panel", () => {
+		const t = harness();
+		const logo = required(t.host.querySelector(".logo"), "missing logo");
+		expect(logo.textContent).toBe("Stripesim");
+		expect(t.host.firstElementChild).toBe(logo);
+		// The wordmark links to the app's clean entry point.
+		const link = required(logo.querySelector("a"), "missing logo link");
+		expect(link.getAttribute("href")).toBe("/");
+	});
+
 	test("the theme section anchors after the scrolling content", () => {
 		const t = harness();
 		const scroll = required(t.host.querySelector(".panel-scroll"), "missing");
 		expect(scroll.querySelectorAll("section")).toHaveLength(4);
-		const footer = t.host.lastElementChild;
-		expect(footer?.querySelector('button[aria-label="dark mode"]')).not.toBe(
+		// The copyright line comes last, after the theme controls.
+		expect(t.host.lastElementChild?.className).toBe("copyright");
+		const footer = required(
+			t.host.lastElementChild?.previousElementSibling,
+			"missing theme section",
+		);
+		expect(footer.querySelector('button[aria-label="dark mode"]')).not.toBe(
 			null,
 		);
+	});
+
+	test("the copyright line shows the current year", () => {
+		const t = harness();
+		const line = required(
+			t.host.querySelector(".copyright"),
+			"missing copyright line",
+		);
+		expect(line.textContent).toBe(`\u{00a9} ${new Date().getFullYear()}`);
 	});
 });
 

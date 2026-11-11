@@ -1,11 +1,15 @@
+import { attachReorder } from "./drag";
 import {
 	addColor,
 	addStripe,
 	type Color,
+	defaultState,
 	directionOf,
+	moveColor,
 	moveStripe,
 	type Origin,
 	type PatternState,
+	paramsOf,
 	patchControls,
 	removeColor,
 	removeStripe,
@@ -14,6 +18,7 @@ import {
 	setStripeColor,
 	setStripeThickness,
 	setSwatchSize,
+	withParams,
 } from "./model";
 
 /**
@@ -51,10 +56,12 @@ const ICON_SUN = "\u{F185}";
 const ICON_SCROLL = "\u{EF0D}";
 const ICON_MOUNTAIN = "\u{EF08}";
 const ICON_MOON = "\u{F186}";
+const ICON_ROTATE_LEFT = "\u{F0E2}";
+const ICON_CHEVRON_LEFT = "\u{F053}";
+const ICON_CHEVRON_RIGHT = "\u{F054}";
 
-// Drag state shared by all stripe rows of one panel build.
+// Drag state shared by all reorderable rows of one panel build.
 type DragState = {
-	host: HTMLElement;
 	from: number | null;
 };
 
@@ -63,46 +70,97 @@ type DragState = {
  * Reads state through `getState` and, on user input, derives the next
  * state with pure model transitions and hands it to `dispatch`.
  */
+/**
+ * What the panel needs to render and drive the session history: the
+ * button states and the move handler the owner implements.
+ */
+export type HistoryDeps = {
+	canBack: () => boolean;
+	canForward: () => boolean;
+	onMove: (direction: "back" | "forward") => void;
+};
+
 export function buildPanel(
 	host: HTMLElement,
 	getState: GetState,
 	dispatch: Dispatch,
+	historyDeps: HistoryDeps,
 ): void {
 	host.replaceChildren();
 	const state = getState();
-	const drag: DragState = { host, from: null };
+	const drag: DragState = { from: null };
 	// The four editing sections scroll; the theme controls anchor to the
 	// panel's bottom left corner and stay put.
 	const scroll = document.createElement("div");
 	scroll.className = "panel-scroll";
 	scroll.append(
-		paletteSection(getState, dispatch, host),
-		stripesSection(getState, dispatch, drag),
+		paletteSection(host, getState, dispatch, drag),
+		stripesSection(host, getState, dispatch, drag),
 		patternSection(state, getState, dispatch),
 		swatchSection(state, getState, dispatch),
 	);
-	host.append(scroll, themeSection(state, getState, dispatch));
+	host.append(
+		historyRow(getState, dispatch, historyDeps),
+		scroll,
+		themeSection(state, getState, dispatch),
+	);
+}
+
+/**
+ * The panel header row: reset, then back and forward through the
+ * session history. The buttons split the row's width evenly, and the
+ * history buttons disable at the ends of the list, so their disabled
+ * state reads like a position.
+ */
+function historyRow(
+	getState: GetState,
+	dispatch: Dispatch,
+	historyDeps: HistoryDeps,
+): HTMLElement {
+	const back = iconButton(ICON_CHEVRON_LEFT, "Back one change", () => {
+		historyDeps.onMove("back");
+	});
+	back.disabled = !historyDeps.canBack();
+	const forward = iconButton(ICON_CHEVRON_RIGHT, "Forward one change", () => {
+		historyDeps.onMove("forward");
+	});
+	forward.disabled = !historyDeps.canForward();
+	const reset = iconButton(ICON_ROTATE_LEFT, "Reset to default pattern", () => {
+		dispatch(withParams(getState(), paramsOf(defaultState())), "structure");
+	});
+	reset.title = "Restore the default pattern";
+	const row = document.createElement("div");
+	row.className = "panel-history";
+	row.append(reset, back, forward);
+	return row;
 }
 
 function paletteSection(
+	host: HTMLElement,
 	getState: GetState,
 	dispatch: Dispatch,
-	host: HTMLElement,
+	drag: DragState,
 ): HTMLElement {
-	const rows = getState().palette.map((color) =>
-		paletteRow(getState, dispatch, color, host),
+	const rows = getState().palette.map((color, index) =>
+		paletteRow(getState, dispatch, color, index, drag, host),
 	);
 	const add = iconButton(ICON_PLUS, "Add color", () => {
 		const color = { id: crypto.randomUUID(), hex: "#cccccc" };
 		dispatch(addColor(getState(), color), "structure");
 	});
-	return section("Palette", ...rows, add);
+	const box = section("Palette", rows, add);
+	attachReorder(box, ".palette-row", drag, (from, target) =>
+		dispatch(moveColor(getState(), from, target), "structure"),
+	);
+	return box;
 }
 
 function paletteRow(
 	getState: GetState,
 	dispatch: Dispatch,
 	color: Color,
+	index: number,
+	drag: DragState,
 	host: HTMLElement,
 ): HTMLElement {
 	const picker = document.createElement("input");
@@ -138,7 +196,9 @@ function paletteRow(
 		dispatch(removeColor(getState(), color.id), "structure");
 	});
 
-	return row("palette-row", picker, hexInput, remove);
+	const box = row("palette-row", picker, hexInput, remove);
+	box.prepend(dragHandle(index, box, host, drag));
+	return box;
 }
 
 // Repaint every stripe-row swatch that references a palette color, in
@@ -158,13 +218,14 @@ function syncSwatchColors(host: HTMLElement, palette: Color[]): void {
 }
 
 function stripesSection(
+	host: HTMLElement,
 	getState: GetState,
 	dispatch: Dispatch,
 	drag: DragState,
 ): HTMLElement {
 	const state = getState();
 	const rows = state.stripes.map((_, index) =>
-		stripeRow(index, getState, dispatch, drag),
+		stripeRow(index, host, getState, dispatch, drag),
 	);
 	const add = iconButton(ICON_PLUS, "Add stripe", () => {
 		const first = getState().palette[0];
@@ -174,13 +235,16 @@ function stripesSection(
 		dispatch(addStripe(getState(), first.id), "structure");
 	});
 	add.disabled = state.palette.length === 0;
-	const box = section("Stripes", ...rows, add);
-	attachReorder(box, getState, dispatch, drag);
+	const box = section("Stripes", rows, add);
+	attachReorder(box, ".stripe-row", drag, (from, target) =>
+		dispatch(moveStripe(getState(), from, target), "structure"),
+	);
 	return box;
 }
 
 function stripeRow(
 	index: number,
+	host: HTMLElement,
 	getState: GetState,
 	dispatch: Dispatch,
 	drag: DragState,
@@ -194,7 +258,7 @@ function stripeRow(
 	const box = document.createElement("div");
 	box.className = "row stripe-row";
 	box.append(
-		dragHandle(index, box, drag),
+		dragHandle(index, box, host, drag),
 		swatchGroup(state.palette, stripe, (colorId) => {
 			dispatch(setStripeColor(getState(), index, colorId), "canvas");
 		}),
@@ -219,6 +283,7 @@ function stripeRow(
 function dragHandle(
 	index: number,
 	box: HTMLElement,
+	host: HTMLElement,
 	drag: DragState,
 ): HTMLElement {
 	const handle = document.createElement("span");
@@ -234,74 +299,37 @@ function dragHandle(
 	handle.addEventListener("dragend", () => {
 		drag.from = null;
 		box.classList.remove("dragging");
-		clearIndicators(drag.host);
+		clearDropIndicators(host);
 	});
 	return handle;
 }
 
-/*
- * Drop wiring for the whole stripes section, not single rows: the target
- * comes from the cursor's height among the row rects, so the section
- * heading, the row margins, and the area below the last row all land the
- * drop somewhere sensible. `preventDefault` on every dragover is what
- * permits the drop at all; skipping it for self-hovers made the browser
- * cancel edge drops.
- */
-function attachReorder(
-	sectionBox: HTMLElement,
-	getState: GetState,
-	dispatch: Dispatch,
-	drag: DragState,
-): void {
-	const target = (event: DragEvent): number => {
-		const rows = [...sectionBox.querySelectorAll(".stripe-row")];
-		for (const [index, row] of rows.entries()) {
-			const rect = row.getBoundingClientRect();
-			if (event.clientY <= rect.top + rect.height / 2) {
-				return dropTargetIndex(drag.from ?? 0, index, false);
-			}
-		}
-		const last = rows.length - 1;
-		return dropTargetIndex(drag.from ?? 0, last, true);
-	};
-	sectionBox.addEventListener("dragover", (event) => {
-		if (drag.from === null) {
-			return;
-		}
-		event.preventDefault();
-		clearIndicators(drag.host);
-		showIndicator(drag.host, drag.from, target(event));
-	});
-	sectionBox.addEventListener("drop", (event) => {
-		if (drag.from === null) {
-			return;
-		}
-		event.preventDefault();
-		const from = drag.from;
-		drag.from = null;
-		dispatch(moveStripe(getState(), from, target(event)), "structure");
-	});
-}
-
-function clearIndicators(host: HTMLElement): void {
+/** Remove every drop indicator under `host`. Shared by all reorder lists. */
+export function clearDropIndicators(host: HTMLElement): void {
 	for (const node of host.querySelectorAll(".drop-above, .drop-below")) {
 		node.classList.remove("drop-above", "drop-below");
 	}
 }
 
 /*
- * Show the drop indicator at the one gap the stripe will land in: on the
- * top edge of the row that follows the insertion point, or on the bottom
- * edge of the last row when the stripe lands at the end. Drawing the line
- * from the target index — not from the hovered row — gives each gap
- * exactly one indicator, since hovering the bottom of row i and the top of
- * row i+1 resolve to the same target. A no-op drop shows nothing.
+ * Show the drop indicator at the one gap the dragged row will land in:
+ * on the top edge of the row that follows the insertion point, or on the
+ * bottom edge of the last row when the item lands at the end. Drawing
+ * the line from the target index — not from the hovered row — gives each
+ * gap exactly one indicator, since hovering the bottom of row i and the
+ * top of row i+1 resolve to the same target. A no-op drop shows nothing.
+ * Shared by the stripe rows and the saved-pattern cards.
  */
-function showIndicator(host: HTMLElement, from: number, target: number): void {
+export function showDropIndicator(
+	host: HTMLElement,
+	selector: string,
+	from: number,
+	target: number,
+): void {
 	if (target === from) {
 		return;
 	}
-	const rows = [...host.querySelectorAll(".stripe-row")];
+	const rows = [...host.querySelectorAll(selector)];
 	// Post-removal target index t maps to the original row t when t < from
 	// (rows before the removed one keep their indices) and t + 1 otherwise.
 	const follower = target < from ? target : target + 1;
@@ -452,7 +480,7 @@ function patternSection(
 	if (directionOf(state.origin) === "diagonal") {
 		children.push(angleRow(state, getState, dispatch));
 	}
-	return section("Pattern", ...children);
+	return section("Pattern", children);
 }
 
 /**
@@ -547,7 +575,7 @@ function swatchSection(
 	const sizeRow = document.createElement("div");
 	sizeRow.className = "row swatch-size";
 	sizeRow.append(widthInput, times, heightInput);
-	return section("Swatch", sizeRow);
+	return section("Swatch", [sizeRow]);
 }
 
 // Theme picker anchored to the panel's bottom left corner; the choice
@@ -618,11 +646,28 @@ function fieldRow(labelText: string, control: HTMLElement): HTMLElement {
 	return field;
 }
 
-function section(title: string, ...children: HTMLElement[]): HTMLElement {
+/*
+ * One titled panel section. `controls` ride in the title row, right
+ * of the heading, instead of trailing the content (the palette and
+ * stripes add buttons): repeated clicks keep the button under the
+ * cursor instead of shifting it as the list grows.
+ */
+function section(
+	title: string,
+	children: HTMLElement[],
+	controls?: HTMLElement,
+): HTMLElement {
 	const heading = document.createElement("h2");
 	heading.textContent = title;
 	const box = document.createElement("section");
-	box.append(heading, ...children);
+	if (controls) {
+		const header = document.createElement("div");
+		header.className = "section-header";
+		header.append(heading, controls);
+		box.append(header, ...children);
+	} else {
+		box.append(heading, ...children);
+	}
 	return box;
 }
 
@@ -634,14 +679,14 @@ function row(className: string, ...children: HTMLElement[]): HTMLElement {
 }
 
 // A button whose visible content is a nerd font glyph.
-function iconButton(
+export function iconButton(
 	glyph: string,
 	label: string,
 	onClick: () => void,
 ): HTMLButtonElement {
 	const node = document.createElement("button");
 	node.type = "button";
-	node.className = "nf";
+	node.className = "nf icon-button";
 	node.textContent = glyph;
 	node.setAttribute("aria-label", label);
 	node.title = label;

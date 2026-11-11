@@ -7,6 +7,7 @@ import {
 	defaultState,
 	directionOf,
 	expand,
+	moveColor,
 	moveStripe,
 	type Origin,
 	type PatternState,
@@ -137,6 +138,7 @@ describe("state transitions", () => {
 		removeColor(state, "a");
 		addStripe(state, "b");
 		moveStripe(state, 0, 2);
+		moveColor(state, 1, 0);
 		addColor(state, { id: "c", hex: "#cccccc" });
 		patchControls(state, {
 			repeat: "ping-pong",
@@ -168,6 +170,20 @@ describe("state transitions", () => {
 	test("moving a stripe from outside the list changes nothing", () => {
 		const state = base();
 		expect(moveStripe(state, 7, 0)).toBe(state);
+	});
+
+	test("moving a color reorders the palette", () => {
+		const state = base();
+		const next = moveColor(state, 1, 0);
+		expect(next.palette.map((color) => color.id)).toEqual(["b", "a"]);
+		expect(next.palette[0]?.hex).toBe("#eeeeee");
+		// Stripes follow ids, not positions, so they carry over by reference.
+		expect(next.stripes).toBe(state.stripes);
+	});
+
+	test("moving a color from outside the list changes nothing", () => {
+		const state = base();
+		expect(moveColor(state, 7, 0)).toBe(state);
 	});
 
 	test("patchControls replaces only the patched fields", () => {

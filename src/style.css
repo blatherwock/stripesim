@@ -107,6 +107,18 @@ button {
 	border-radius: 4px;
 }
 
+/*
+ * Disabled buttons fade into whatever surface they sit on: muted
+ * text and no visible chrome, since the base rule above overrides
+ * the browser's own greying.
+ */
+button:disabled {
+	color: var(--text-muted);
+	background: transparent;
+	border-color: transparent;
+	cursor: not-allowed;
+}
+
 input[type="number"],
 input[type="text"] {
 	background: var(--input-bg);
@@ -191,19 +203,23 @@ canvas {
 	width: 72px;
 }
 
-.stripe-row {
+.stripe-row,
+.palette-row {
 	transition: opacity 0.15s;
 }
 
-.stripe-row.dragging {
+.stripe-row.dragging,
+.palette-row.dragging {
 	opacity: 0.35;
 }
 
-.stripe-row.drop-above {
+.stripe-row.drop-above,
+.palette-row.drop-above {
 	box-shadow: inset 0 3px 0 0 var(--accent);
 }
 
-.stripe-row.drop-below {
+.stripe-row.drop-below,
+.palette-row.drop-below {
 	box-shadow: inset 0 -3px 0 0 var(--accent);
 }
 
@@ -307,12 +323,63 @@ canvas {
 }
 
 .row button,
-.panel section > button {
+.section-header button {
 	padding: 2px 8px;
 }
 
-.panel section > button {
-	margin-top: 4px;
+/*
+ * Glyph buttons draw one icon from a proportional symbols font, so
+ * their natural widths differ (the plus runs wider than the x); a
+ * fixed square with a slightly smaller glyph keeps every panel glyph
+ * button the same size.
+ */
+.panel .icon-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	font-size: 12px;
+}
+
+/*
+ * The history row stretches its three buttons across the full panel
+ * width, one equal share each; the fixed square rule above would
+ * otherwise pin them at 24px.
+ */
+.panel-history {
+	display: flex;
+	gap: 4px;
+}
+
+.panel-history .icon-button {
+	flex: 1;
+	width: auto;
+}
+
+/*
+ * The palette color bar fills the space between the drag handle and
+ * the fixed hex field, so each row's remove icon lands flush with the
+ * panel's right edge.
+ */
+.palette-row input[type="color"] {
+	flex: 1;
+	min-width: 0;
+	height: 24px;
+	padding: 0;
+}
+
+/*
+ * Section title row: optional controls (the add buttons) sit right of
+ * the heading so the heading sets the row's spacing and the button
+ * stays put while the list below grows.
+ */
+.section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4px;
 }
 
 .field {
@@ -329,4 +396,183 @@ canvas {
 
 .field > input[type="number"] {
 	width: 72px;
+}
+
+/*
+ * Saved-patterns sidebar: a 150 px third column on the right edge,
+ * collapsing to a slim rail that holds only the expand button. Cards
+ * stack in a scrolling list; the action pair (save above delete) sits
+ * pinned to the card's right side and appears on hover, as do the drop
+ * indicators shared with the stripe rows.
+ */
+.sidebar {
+	width: 150px;
+	display: flex;
+	flex-direction: column;
+	padding: 12px 10px;
+	border-left: 1px solid var(--border);
+	background: var(--panel-bg);
+	transition:
+		width 0.15s,
+		padding 0.15s;
+}
+
+/*
+ * The collapse toggle keeps one geometry in both states: a square
+ * button anchored to the column's top right with the same insets. The
+ * rail's width is exactly the button plus those insets.
+ */
+.sidebar.collapsed {
+	width: 44px;
+	padding: 12px 10px;
+	align-items: flex-end;
+}
+
+.sidebar-toggle,
+.sidebar-expand {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.sidebar-header {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 10px;
+}
+
+.sidebar-save {
+	flex: 1;
+	padding: 2px 0;
+}
+
+.saved-list {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.card {
+	position: relative;
+	border: 1px solid var(--border);
+	border-radius: 5px;
+	background: var(--input-bg);
+	padding: 5px;
+	cursor: pointer;
+	transition: opacity 0.15s;
+}
+
+.card:hover {
+	border-color: var(--accent);
+}
+
+.card.dragging {
+	opacity: 0.35;
+}
+
+.card.drop-above {
+	box-shadow: inset 0 3px 0 0 var(--accent);
+}
+
+.card.drop-below {
+	box-shadow: inset 0 -3px 0 0 var(--accent);
+}
+
+.card-thumb {
+	display: block;
+	margin: 0 auto;
+	background: #ffffff;
+}
+
+.card-actions {
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	opacity: 0;
+}
+
+.card:hover .card-actions,
+.card:focus-within .card-actions {
+	opacity: 1;
+}
+
+.sidebar .card-actions button {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--control-bg);
+}
+
+/*
+ * Sidebar footer: the export and import buttons anchor to the column's
+ * bottom, below the scrolling card list, like the panel's theme
+ * section. The file input they drive stays invisible.
+ */
+.sidebar-footer {
+	display: flex;
+	gap: 4px;
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px solid var(--border);
+}
+
+.sidebar .sidebar-footer button {
+	flex: 1;
+	padding: 2px 0;
+}
+
+.sidebar-footer input[type="file"] {
+	display: none;
+}
+
+/*
+ * Import modal: a fixed overlay with a centered dialog. The backdrop
+ * dims the page and swallows clicks as cancel.
+ */
+.modal-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+}
+
+.modal {
+	background: var(--panel-bg);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.sidebar .modal button {
+	padding: 4px 12px;
+}
+
+.modal-error {
+	margin: 0;
+	color: var(--text);
+}
+
+/* The reset button anchors to the panel's top, above the sections. */
+.panel-reset {
+	margin-bottom: 8px;
+	padding: 4px 8px;
 }

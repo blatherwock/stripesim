@@ -4,7 +4,7 @@ import {
 	directionOf,
 	expand,
 	type Origin,
-	type PatternState,
+	type PatternParams,
 	type Segment,
 	type Swatch,
 } from "./model";
@@ -19,13 +19,20 @@ export type PixelSize = {
 const PREVIEW_FRACTION = 0.85;
 
 /**
+ * Pixels per unit that fits the swatch into a box of the given size,
+ * preserving the unit aspect ratio. A zero-sized box yields zero.
+ */
+export function fitScale(swatch: Swatch, box: PixelSize): number {
+	return Math.min(box.width / swatch.width, box.height / swatch.height);
+}
+
+/**
  * Pixels per unit that fits the swatch into a pane of the given size at
  * `PREVIEW_FRACTION`, preserving the unit aspect ratio. A zero-sized
  * pane yields zero.
  */
 export function previewScale(swatch: Swatch, pane: PixelSize): number {
-	const fit = Math.min(pane.width / swatch.width, pane.height / swatch.height);
-	return PREVIEW_FRACTION * fit;
+	return PREVIEW_FRACTION * fitScale(swatch, pane);
 }
 
 /**
@@ -41,7 +48,8 @@ export function swatchPixelSize(swatch: Swatch, scale: number): PixelSize {
 
 /**
  * Draw the pattern into a 2D context sized to `swatchPixelSize` at the
- * given scale.
+ * given scale. Takes the pattern fields only: previews pass the full
+ * editor state, saved cards pass their stored parameters.
  *
  * The swatch is filled with the first palette color (white when the palette
  * is empty), then expanded segments draw as hard-edged bands. Horizontal and
@@ -50,37 +58,37 @@ export function swatchPixelSize(swatch: Swatch, scale: number): PixelSize {
  */
 export function renderPattern(
 	ctx: CanvasRenderingContext2D,
-	state: PatternState,
+	pattern: PatternParams,
 	scale: number,
 ): void {
-	const { width, height } = swatchPixelSize(state.swatch, scale);
+	const { width, height } = swatchPixelSize(pattern.swatch, scale);
 	ctx.save();
 	ctx.beginPath();
 	ctx.rect(0, 0, width, height);
 	ctx.clip();
-	ctx.fillStyle = state.palette[0]?.hex ?? "#ffffff";
+	ctx.fillStyle = pattern.palette[0]?.hex ?? "#ffffff";
 	ctx.fillRect(0, 0, width, height);
 
-	const direction = directionOf(state.origin);
-	const length = axisLength(direction, state.angle, state.swatch);
-	for (const segment of expand(state.stripes, state.repeat, length)) {
-		const hex = paletteHex(state, segment.colorId);
+	const direction = directionOf(pattern.origin);
+	const length = axisLength(direction, pattern.angle, pattern.swatch);
+	for (const segment of expand(pattern.stripes, pattern.repeat, length)) {
+		const hex = paletteHex(pattern, segment.colorId);
 		if (hex === null) {
 			continue;
 		}
 		ctx.fillStyle = hex;
-		drawSegment(ctx, state, direction, segment, width, height, scale);
+		drawSegment(ctx, pattern, direction, segment, width, height, scale);
 	}
 	ctx.restore();
 }
 
-function paletteHex(state: PatternState, colorId: string): string | null {
-	return state.palette.find((color) => color.id === colorId)?.hex ?? null;
+function paletteHex(pattern: PatternParams, colorId: string): string | null {
+	return pattern.palette.find((color) => color.id === colorId)?.hex ?? null;
 }
 
 function drawSegment(
 	ctx: CanvasRenderingContext2D,
-	state: PatternState,
+	pattern: PatternParams,
 	direction: Direction,
 	segment: Segment,
 	width: number,
@@ -92,14 +100,14 @@ function drawSegment(
 	if (direction === "vertical") {
 		// A right start mirrors the axis so the first stripe hugs the
 		// right edge.
-		const x = state.origin === "right" ? width - high : low;
+		const x = pattern.origin === "right" ? width - high : low;
 		ctx.fillRect(x, 0, high - low, height);
 		return;
 	}
 	if (direction === "diagonal") {
 		const [x, y, rotation] = diagonalFrame(
-			state.origin,
-			state.angle,
+			pattern.origin,
+			pattern.angle,
 			width,
 			height,
 		);
@@ -113,7 +121,7 @@ function drawSegment(
 	}
 	// A bottom start mirrors the axis so the first stripe hugs the bottom
 	// edge.
-	const y = state.origin === "bottom" ? height - high : low;
+	const y = pattern.origin === "bottom" ? height - high : low;
 	ctx.fillRect(0, y, width, high - low);
 }
 

@@ -1,6 +1,6 @@
 # Spec: stripe-pattern-designer
 
-Status: rough draft, maintained iteratively alongside the build. Targets tagged [proposed] await confirmation through feedback rounds on the running app.
+Status: rough draft, maintained iteratively alongside the build. Targets tagged [proposed] await confirmation through feedback rounds on the running app. Superseded in part by `0005-working-state.md`: the working pattern now persists across page reloads instead of resetting to the default.
 
 ## Objective
 
@@ -82,7 +82,7 @@ The model must not preclude a later spec that adds parametric thickness and spac
 
 ## Open questions
 
-- Undo within the stripe editor.
+- Undo within the stripe editor: addressed at the pattern level by the session history's back and forward (see `plans/0006-share-link.md`); finer-grained undo within a single edit remains unaddressed.
 - The later parametric-knobs spec: rule types, easing curves, and how generated sequences expand into the editable list.
 
 ## Related documents

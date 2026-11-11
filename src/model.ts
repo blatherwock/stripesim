@@ -54,6 +54,30 @@ export type PatternState = {
 	theme: Theme;
 };
 
+/**
+ * The pattern fields of the state, without the theme: what a saved
+ * card captures and what the renderer needs to draw a pattern.
+ */
+export type PatternParams = Pick<
+	PatternState,
+	"palette" | "stripes" | "repeat" | "origin" | "angle" | "swatch"
+>;
+
+/**
+ * Every origin value in a fixed order: the origin index used by the
+ * share format and the saved-list validator picks from here.
+ */
+export const ORIGINS: readonly Origin[] = [
+	"top",
+	"right",
+	"bottom",
+	"left",
+	"top-left",
+	"top-right",
+	"bottom-left",
+	"bottom-right",
+];
+
 /** A positioned band on the stripe axis, clipped to the axis. */
 export type Segment = {
 	colorId: string;
@@ -63,17 +87,21 @@ export type Segment = {
 
 /**
  * Default demo state shown on load: an off-white and blue 1-1 stripe
- * pattern on a tall swatch.
+ * pattern on a tall swatch. The two colors carry generated ids like
+ * every other color: ids are opaque handles, never color names, so
+ * they cannot go stale when the hexes are edited.
  */
 export function defaultState(): PatternState {
+	const offwhite = crypto.randomUUID();
+	const blue = crypto.randomUUID();
 	return {
 		palette: [
-			{ id: "offwhite", hex: "#f5f5f4" },
-			{ id: "blue", hex: "#2563eb" },
+			{ id: offwhite, hex: "#f5f5f4" },
+			{ id: blue, hex: "#2563eb" },
 		],
 		stripes: [
-			{ colorId: "offwhite", thickness: 2 },
-			{ colorId: "blue", thickness: 2 },
+			{ colorId: offwhite, thickness: 2 },
+			{ colorId: blue, thickness: 2 },
 		],
 		repeat: "cycle",
 		origin: "bottom",
@@ -113,6 +141,29 @@ export function patchControls(
 	return { ...state, ...patch };
 }
 
+/** Return the pattern parameters of `state`, without the theme. */
+export function paramsOf(state: PatternState): PatternParams {
+	return {
+		palette: state.palette,
+		stripes: state.stripes,
+		repeat: state.repeat,
+		origin: state.origin,
+		angle: state.angle,
+		swatch: state.swatch,
+	};
+}
+
+/**
+ * Return a state with the pattern parameters replaced by `params`,
+ * keeping the current theme.
+ */
+export function withParams(
+	state: PatternState,
+	params: PatternParams,
+): PatternState {
+	return { ...state, ...params };
+}
+
 /** Return a state with the given swatch dimensions replaced. */
 export function setSwatchSize(
 	state: PatternState,
@@ -138,6 +189,22 @@ export function setColorHex(
 			color.id === colorId ? { ...color, hex } : color,
 		),
 	};
+}
+
+/**
+ * Return a state with the color at `from` moved to `target`, both
+ * indices into the current palette. A `from` outside the list returns
+ * the input unchanged.
+ */
+export function moveColor(
+	state: PatternState,
+	from: number,
+	target: number,
+): PatternState {
+	if (state.palette[from] === undefined) {
+		return state;
+	}
+	return { ...state, palette: moveItem(state.palette, from, target) };
 }
 
 /** Return a state with the color removed and its stripes dropped. */
@@ -197,6 +264,25 @@ export function setStripeThickness(
 }
 
 /**
+ * Return a new array with the element at `from` moved to `target`. A
+ * `from` outside the list returns a copy in the original order; a
+ * `target` outside the list pins the element at the matching end.
+ */
+export function moveItem<T>(
+	items: readonly T[],
+	from: number,
+	target: number,
+): T[] {
+	const moved = [...items];
+	const [item] = moved.splice(from, 1);
+	if (item === undefined) {
+		return moved;
+	}
+	moved.splice(target, 0, item);
+	return moved;
+}
+
+/**
  * Return a state with the stripe at `from` moved to `target`, both
  * indices into the current stripe list. A `from` outside the list
  * returns the input unchanged.
@@ -206,13 +292,10 @@ export function moveStripe(
 	from: number,
 	target: number,
 ): PatternState {
-	const stripes = [...state.stripes];
-	const [item] = stripes.splice(from, 1);
-	if (item === undefined) {
+	if (state.stripes[from] === undefined) {
 		return state;
 	}
-	stripes.splice(target, 0, item);
-	return { ...state, stripes };
+	return { ...state, stripes: moveItem(state.stripes, from, target) };
 }
 
 /**

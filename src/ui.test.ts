@@ -39,7 +39,11 @@ function harness(): Harness {
 		state = next;
 	};
 	const build = () => {
-		buildPanel(host, () => state, dispatch);
+		buildPanel(host, () => state, dispatch, {
+			canBack: () => false,
+			canForward: () => false,
+			onMove: () => {},
+		});
 	};
 	build();
 	return {
@@ -203,6 +207,74 @@ describe("palette editing", () => {
 		change(hex);
 		expect(t.getState().palette[0]?.hex).toBe("#0a0a0a");
 		expect(swatch.getAttribute("style") ?? "").toContain("#0a0a0a");
+	});
+});
+
+describe("palette reordering", () => {
+	function paletteRows(t: Harness): HTMLElement[] {
+		return [...t.host.querySelectorAll(".palette-row")] as HTMLElement[];
+	}
+
+	// Palette rows stacked 24px apart like the stripe rows.
+	function stubPaletteRects(t: Harness): void {
+		for (const [index, row] of paletteRows(t).entries()) {
+			const top = index * 24;
+			row.getBoundingClientRect = () =>
+				({
+					x: 0,
+					y: top,
+					top,
+					left: 0,
+					right: 0,
+					bottom: top + 20,
+					width: 250,
+					height: 20,
+					toJSON: () => ({}),
+				}) as DOMRect;
+		}
+	}
+
+	test("dragging a color below the next row reorders the palette", () => {
+		const t = harness();
+		stubPaletteRects(t);
+		const first = required(paletteRows(t)[0], "missing row");
+		const handle = required(
+			first.querySelector(".drag-handle"),
+			"missing drag handle",
+		);
+		handle.dispatchEvent(new Event("dragstart", { bubbles: true }));
+
+		// Past row 1's midpoint (34) targets the end of the list.
+		const box = required(first.closest("section"), "missing palette section");
+		box.dispatchEvent(makeDragEvent("dragover", 40));
+		expect(
+			required(paletteRows(t)[1], "missing row").classList.contains(
+				"drop-below",
+			),
+		).toBe(true);
+
+		box.dispatchEvent(makeDragEvent("drop", 40));
+		expect(t.getState().palette.map((color) => color.id)).toEqual(["b", "a"]);
+		// The hex values travel with their colors.
+		expect(t.getState().palette[0]?.hex).toBe("#eeeeee");
+	});
+
+	test("dropping a color on its own row is a no-op", () => {
+		const t = harness();
+		stubPaletteRects(t);
+		const first = required(paletteRows(t)[0], "missing row");
+		const handle = required(
+			first.querySelector(".drag-handle"),
+			"missing drag handle",
+		);
+		handle.dispatchEvent(new Event("dragstart", { bubbles: true }));
+
+		// Within row 0 (y 0..20): the drop cancels out and nothing moves.
+		const box = required(first.closest("section"), "missing palette section");
+		box.dispatchEvent(makeDragEvent("dragover", 10));
+		expect(t.host.querySelectorAll(".drop-above, .drop-below")).toHaveLength(0);
+		box.dispatchEvent(makeDragEvent("drop", 10));
+		expect(t.getState().palette.map((color) => color.id)).toEqual(["a", "b"]);
 	});
 });
 
@@ -447,6 +519,11 @@ describe("stripe editing", () => {
 			host,
 			() => state,
 			() => {},
+			{
+				canBack: () => false,
+				canForward: () => false,
+				onMove: () => {},
+			},
 		);
 		expect(buttons(host, "Add stripe")[0]?.disabled).toBe(true);
 	});
@@ -565,5 +642,47 @@ describe("swatch controls", () => {
 		width.value = "25";
 		change(width);
 		expect(t.getState().swatch.width).toBe(25);
+	});
+});
+
+describe("reset", () => {
+	test("the reset button restores the default pattern and keeps the theme", () => {
+		const t = harness();
+		// Leave the default: gruvbox theme, a non-default swatch.
+		buttons(t.host, "gruvbox mode")[0]?.click();
+		const width = required(
+			t.host.querySelector<HTMLInputElement>(
+				'input[aria-label="Width (units)"]',
+			),
+			"missing width input",
+		);
+		width.value = "80";
+		change(width);
+
+		buttons(t.host, "Reset to default pattern")[0]?.click();
+		// The owner rebuilds the panel on a structure change, as mount does.
+		t.rebuild();
+
+		const state = t.getState();
+		// The default demo pattern, by content: fresh palette ids each
+		// reset, so compare what the user observes.
+		expect(state.swatch).toEqual({ width: 10, height: 100 });
+		expect(state.palette.map((color) => color.hex)).toEqual([
+			"#f5f5f4",
+			"#2563eb",
+		]);
+		expect(state.stripes.map((stripe) => stripe.thickness)).toEqual([2, 2]);
+		expect(state.origin).toBe("bottom");
+		expect(state.angle).toBe(45);
+		// Reset is a pattern operation; the theme stays.
+		expect(state.theme).toBe("gruvbox");
+		// The rebuilt panel shows the default in its inputs.
+		const restored = required(
+			t.host.querySelector<HTMLInputElement>(
+				'input[aria-label="Width (units)"]',
+			),
+			"missing width input",
+		);
+		expect(restored.value).toBe("10");
 	});
 });
